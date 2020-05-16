@@ -1,0 +1,2059 @@
+machine:
+  byteorder: little
+
+decoder:
+  namespace: rx
+
+instructions:
+  - name: brk
+    format: "00000000"
+    extras:
+      size: 1
+      var_def: |
+        unsigned long tmp0, tmp1;
+      operation: |
+        tmp0 = PSW;
+        U = 0;
+        I = 0;
+        PM = 0;
+        tmp1 = PC + 1;
+        PC = *IntBase;
+        SP = SP - 4;
+        *SP = tmp0;
+        SP = SP - 4;
+        *SP = tmp1;
+  - name: rts
+    format: "00000010"
+    extras:
+      size: 1
+      operation: |
+        PC = *SP;
+        SP = SP + 4;
+  - name: nop
+    format: "00000011"
+    extras:
+      size: 1
+      operation: |
+        /* no operation */
+  - name: bra_a
+    format: 00000100|xxxxxxxx xxxxxxxx xxxxxxxx:pcdsp
+    extras:
+      size: 4
+      operation: |
+        PC = PC + src;
+    field_extras:
+      pcdsp: { variable: src }
+  - name: bsr_a
+    format: 00000101|xxxxxxxx xxxxxxxx xxxxxxxx:pcdsp
+    extras:
+      size: 4
+      operation: |
+        SP = SP - 4;
+        *SP = (PC + 4);
+        PC = PC + src;
+    field_extras:
+      pcdsp: { variable: src }
+  - name: sub_2x
+    format: 00000110|xx:mi|0000|xx:ld|xxxx:rs|xxxx:rd
+    field_extras:
+      mi: { type: MemEx, variable: memex, value: [ B, W, L, UW ]}
+      ld: { type: DispLen, value:[ disp0, disp8, disp16, register ] }
+      rs: { variable: src, exchange: [rs, 0@rs, dsp8@rs, dsp16@rs] }
+      rd: { variable: dest, output: true }
+    extras:
+      size: (memex == UB) ? 3 | 4
+      operation: |
+        dest = dest - src;
+  - name: cmp_4x
+    format: 00000110|xx:mi|0001|xx:ld|xxxx:rs|xxxx:rs2
+    extras:
+      size: 3
+      operation: |
+        src2 - src;
+    field_extras:
+      mi: { type: MemEx, variable: memex, value: [ B, W, L, UW ]}
+      ld: { type: DispLen, value:[ disp0, disp8, disp16, register ] }
+      dsp: { variable: src }
+  - name: add_2x
+    format: 00000110|xx:mi|0010|xx:ld|xxxx:rs|xxxx:rd
+    extras:
+      size: 3
+      operation: |
+        dest = dest + src;
+  - name: mul_3x
+    format: 00000110|xx:mi|0011|xx:ld|xxxx:rs|xxxx:rd
+    extras:
+      size: 3
+      operation: |
+        dest = src * dest;
+    field_extras:
+      mi: { type: MemEx, variable: memex, value: [ B, W, L, UW ]}
+      ld: { type: DispLen, value:[ disp0, disp8, disp16, register ] }
+  - name: and_3x
+    format: 00000110|xx:mi|0100|xx:ld|xxxx:rs|xxxx:rd
+    extras:
+      size: 3
+      operation: |
+        dest = dest & src;
+    field_extras:
+      ld: { type: DispLen, value:[ disp0, disp8, disp16, register ] }
+  - name: or_3x
+    format: 00000110|xx:mi|0101|xx:ld|xxxx:rs|xxxx:rd
+    extras:
+      size: 3
+      operation: |
+        dest = dest | src;
+    field_extras:
+      mi: { type: MemEx, variable: memex, value: [ B, W, L, UW ]}
+      ld: { type: DispLen, value:[ disp0, disp8, disp16, register ] }
+  - name: sbb_2
+    format: 00000110 101000|xx:ld|xxxx:rs|xxxx:rd
+    extras:
+      size: 4
+      operation: |
+        dest = dest - src - !C;
+    field_extras:
+      ld: { type: DispLen, value:[ disp0, disp8, disp16, none ] }
+  - name: adc_3
+    format: 00000110|xx:mi|1000|xx:ld|00000010|xxxx:rs|xxxx:rd
+    extras:
+      size: 4
+      operation: |
+        dest = dest + src + C;
+    field_extras:
+      mi: { type: MemEx, variable: memex, value: [ none, none, L, none ]}
+      ld: { type: DispLen, value:[ disp0, disp8, disp16, none ] }
+  - name: div_2x
+    format: 00000110|xx:mi|1000|xx:ld|00001000|xxxx:rs|xxxx:rd
+    extras:
+      size: 4
+      operation: |
+        dest = dest / src;
+    field_extras:
+      mi: { type: MemEx, variable: memex, value: [ B, W, L, UW ]}
+      ld: { type: DispLen, value:[ disp0, disp8, disp16, register ] }
+  - name: divu_2x
+    format: 00000110|xx:mi|1000|xx:ld|00001001|xxxx:rs|xxxx:rd
+    extras:
+      size: 4
+      operation: |
+        dest = dest / src;
+    field_extras:
+      mi: { type: MemEx, variable: memex, value: [ B, W, L, UW ]}
+      ld: { type: DispLen, value:[ disp0, disp8, disp16, register ] }
+  - name: emul_2x
+    format: 00000110|xx:mi|1000|xx:ld|00000110|xxxx:rs|xxxx:rd
+    extras:
+      size: 4
+      operation: |
+        dest2:dest = dest * src;
+    field_extras:
+      mi: { type: MemEx, variable: memex, value: [ B, W, L, UW ]}
+      ld: { type: DispLen, value:[ disp0, disp8, disp16, register ] }
+  - name: emulu_2x
+    format: 00000110|xx:mi|1000|xx:ld|00000111|xxxx:rs|xxxx:rd
+    extras:
+      size: 4
+      operation: |
+        dest2:dest = dest * src;
+    field_extras:
+      mi: { type: MemEx, variable: memex, value: [ B, W, L, UW ]}
+      ld: { type: DispLen, value:[ disp0, disp8, disp16, register ] }
+  - name: itof_1x
+    format: 00000110|xx:mi|1000|xx:ld|00010001|xxxx:rs|xxxx:rd
+    extras:
+      size: 4
+      operation: |
+    field_extras:
+      mi: { type: MemEx, variable: memex, value: [ B, W, L, UW ]}
+      ld: { type: DispLen, value:[ disp0, disp8, disp16, register ] }
+  - name: max_2x
+    format: 00000110|xx:mi|1000|xx:ld|00000100|xxxx:rs|xxxx:rd
+    extras:
+      size: 4
+      operation: |
+        if (src > dest)
+        dest = src;
+    field_extras:
+      mi: { type: MemEx, variable: memex, value: [ B, W, L, UW ]}
+      ld: { type: DispLen, value:[ disp0, disp8, disp16, register ] }
+  - name: min_2x
+    format: 00000110|xx:mi|1000|xx:ld|00000101|xxxx:rs|xxxx:rd
+    extras:
+      size: 4
+      operation: |
+        if (src < dest)
+        dest = src;
+    field_extras:
+      mi: { type: MemEx, variable: memex, value: [ B, W, L, UW ]}
+      ld: { type: DispLen, value:[ disp0, disp8, disp16, register ] }
+  - name: tst_2x
+    format: 00000110|xx:mi|1000|xx:ld|00001100|xxxx:rs|xxxx:rs2
+    extras:
+      size: 4
+      operation: |
+        src2 & src;
+    field_extras:
+      mi: { type: MemEx, variable: memex, value: [ B, W, L, UW ]}
+      ld: { type: DispLen, value:[ disp0, disp8, disp16, register ] }
+  - name: xchg_1x
+    format: 00000110|xx:mi|1000|xx:ld|00010000|xxxx:rs|xxxx:rd
+    extras:
+      size: 4
+      var_def: |
+        unsigned long tmp;
+      operation: |
+        tmp = src;
+        src = dest;
+        dest = tmp;
+    field_extras:
+      mi: { type: MemEx, variable: memex, value: [ B, W, L, UW ]}
+      ld: { type: DispLen, value:[ disp0, disp8, disp16, register ] }
+  - name: xor_2x
+    format: 00000110|xx:mi|1000|xx:ld|00001101|xxxx:rs|xxxx:rd
+    extras:
+      size: 4
+      operation: |
+        dest = dest ^ src;
+    field_extras:
+      mi: { type: MemEx, variable: memex, value: [ B, W, L, UW ]}
+      ld: { type: DispLen, value:[ disp0, disp8, disp16, register ] }
+  - name: bra_s
+    format: 00001|xxx:dsp
+    extras:
+      size: 1
+      operation: |
+        PC = PC + src;
+    field_extras:
+      dsp: { variable: src, value:[ 8, 9, 10, 3, 4, 5, 6, 7] }
+  - name: bcnd_s
+    format: 0001|x:cd|xxx:dsp
+    extras:
+      size: 1
+      operation: |
+        if (Cnd)
+        PC = PC + src;
+    field_extras:
+      cd: { type: bool, variable: Cnd, value: [Z == 1, Z == 0] }
+      dsp: { variable: src, value:[ 8, 9, 10, 3, 4, 5, 6, 7] }
+  - name: bra_b
+    format: 00101110|xxxxxxxx:pcdsp
+    extras:
+      size: 2
+      operation: |
+        PC = PC + src;
+    field_extras:
+      pcdsp: { variable: src }
+  - name: bcnd_b
+    format: 0010|xxxx:cd|xxxxxxxx:pcdsp
+    extras:
+      size: 2
+      operation: |
+        if (Cnd)
+        PC = PC + src;
+    field_extras:
+      cd: { type: bool, variable: Cnd, value: [Z == 1, Z == 0, C == 1, C == 0, S == 0, (C & ~Z) == 0, S == 0, S == 1, (S ^ O) == 0, (S ^ O) == 1, ((S ^ O) | Z) == 0, ((S ^ O) | Z) == 1, O == 1, O == 0] }
+      pcdsp: { variable: src }
+  - name: bra_w
+    format: 00111000|xxxxxxxx xxxxxxxx:pcdsp
+    extras:
+      size: 3
+      operation: |
+        PC = PC + src;
+    field_extras:
+      pcdsp: { variable: src }
+  - name: bsr_w
+    format: 00111001|xxxxxxxx xxxxxxxx:pcdsp
+    extras:
+      size: 3
+      operation: |
+        SP = SP - 4;
+        *SP = (PC + 3);
+        PC = PC + src;
+    field_extras:
+      pcdsp: { variable: src }
+  - name: bcnd_w
+    format: 0011101|x:cd|xxxxxxxx xxxxxxxx:pcdsp
+    extras:
+      size: 3
+      operation: |
+        if (Cnd)
+        PC = PC + src;
+    field_extras:
+      cd: { type: bool, variable: Cnd, value: [Z == 1, Z == 0] }
+      pcdsp: { variable: src }
+  - name: rtsd_2
+    format: 00111111|xxxx:rd|xxxx:rd2
+    extras:
+      size: 3
+      var_def: |
+        unsigned long tmp;
+        signed char i;
+      operation: |
+        SP = SP + ( src - ( register_num(dest2) - register_num(dest) +1 ) * 4 );
+        for ( i = register_num(dest); i <= register_num(dest2); i++ ) {
+        tmp = *SP;
+        SP = SP + 4;
+        register(i) = tmp;
+        }
+        PC = *SP;
+        SP = SP + 4;
+      imm: { variable: src, im_len: imm8 }
+  - name: mov_4
+    format: 001111|xx:sz|x:dsp[4]|xxx:rd|xxxx:dsp[3:0]
+    extras:
+      size: 3
+      operation: |
+        dest = src;
+    field_extras:
+      dsp: { variable: src }
+  - name: sub_2
+    format: 010000|xx:ld|xxxx:rs|xxxx:rd
+    extras:
+      size: 2
+      operation: |
+        dest = dest - src;
+    field_extras:
+      ld: { type: DispLen, value:[ disp0, disp8, disp16, register ] }
+  - name: cmp_4
+    format: 010001|xx:ld|xxxx:rs|xxxx:rs2
+    extras:
+      size: 2
+      operation: |
+        src2 - src;
+    field_extras:
+      mi: { type: MemEx, variable: memex, value: [ B, W, L, UW ]}
+      ld: { type: DispLen, value:[ disp0, disp8, disp16, register ] }
+  - name: add_2
+    format: 010010|xx:ld|xxxx:rs|xxxx:rd
+    extras:
+      size: 2
+      operation: |
+        dest = dest + src;
+    field_extras:
+      mi: { type: MemEx, variable: memex, value: [ B, W, L, UW ]}
+      ld: { type: DispLen, value:[ disp0, disp8, disp16, register ] }
+  - name: mul_3
+    format: 010011|xx:ld|xxxx:rs|xxxx:rd
+    extras:
+      size: 2
+      operation: |
+        dest = src * dest;
+    field_extras:
+      ld: { type: DispLen, value:[ disp0, disp8, disp16, register ] }
+  - name: and_3
+    format: 010100|xx:ld|xxxx:rs|xxxx:rd
+    extras:
+      size: 2
+      operation: |
+        dest = dest & src;
+    field_extras:
+      ld: { type: DispLen, value:[ disp0, disp8, disp16, register ] }
+  - name: or_3
+    format: 010101|xx:ld|xxxx:rs|xxxx:rd
+    extras:
+      size: 2
+      operation: |
+        dest = dest | src;
+    field_extras:
+      ld: { type: DispLen, value:[ disp0, disp8, disp16, register ] }
+  - name: movu_2
+    format: 01011|x:sz|xx:ld|xxxx:rs|xxxx:rd
+    extras:
+      size: 2
+      operation: |
+        dest = src;
+    field_extras:
+      sz: { type: OpSize, value: [ B, W] }
+      ld: { type: DispLen, value:[ disp0, disp8, disp16, register ] }
+  - name: sub_1
+    format: 01100000|xxxx:imm|xxxx:rd
+    extras:
+      size: 2
+      operation: |
+        dest = dest - src;
+    field_extras:
+      imm: { variable: src }
+  - name: cmp_1
+    format: 01100001|xxxx:imm|xxxx:rs2
+    extras:
+      size: 2
+      operation: |
+        src2 - src;
+    field_extras:
+      imm: { variable: src }
+  - name: add_1
+    format: 01100010|xxxx:imm|xxxx:rd
+    extras:
+      size: 2
+      operation: |
+        dest = dest + src;
+    field_extras:
+      imm: { variable: src }
+  - name: mul_1
+    format: 01100011|xxxx:imm|xxxx:rd
+    extras:
+      size: 2
+      operation: |
+        dest = src * dest;
+    field_extras:
+      imm: { variable: src }
+  - name: and_1
+    format: 01100100|xxxx:imm|xxxx:rd
+    extras:
+      size: 2
+      operation: |
+        dest = dest & src;
+    field_extras:
+      imm: { variable: src }
+  - name: or_1
+    format: 01100101|xxxx:imm|xxxx:rd
+    extras:
+      size: 2
+      operation: |
+        dest = dest | src;
+    field_extras:
+      imm: { variable: src }
+  - name: mov_3
+    format: 01100110|xxxx:imm|xxxx:rd
+    extras:
+      size: 2
+      operation: |
+        dest = src;
+    field_extras:
+      imm: { variable: src }
+  - name: rtsd_1
+    format: 01100111|xxxxxxxx:uimm
+    extras:
+      size: 2
+      operation: |
+        SP = SP + src;
+        PC = *SP;
+        SP = SP + 4;
+    field_extras:
+      uimm: { variable: src }
+  - name: shlr_1
+    format: 0110100|xxxxx:imm|xxxx:rd
+    extras:
+      size: 2
+      operation: |
+        dest = (unsigned long)dest >> (src & 31);
+    field_extras:
+      imm: { variable: src }
+  - name: shar_1
+    format: 0110101|xxxxx:imm|xxxx:rd
+    extras:
+      size: 2
+      operation: |
+        dest = (signed long)dest >> (src & 31);
+    field_extras:
+      imm: { variable: src }
+  - name: shll_1
+    format: 0110110|xxxxx:imm|xxxx:rd
+    extras:
+      size: 2
+      operation: |
+        dest = dest << (src & 31);
+    field_extras:
+      imm: { variable: src }
+  - name: pushm
+    format: 01101110|xxxx:rs|xxxx:rs2
+    extras:
+      size: 2
+      var_def: |
+        unsigned long tmp;
+        signed char i;
+      operation: |
+        for ( i = register_num(src2); i >= register_num(src); i-- ) {
+        tmp = register(i);
+        SP = SP - 4;
+        *SP = tmp;
+        }
+  - name: popm
+    format: 01101111|xxxx:rd|xxxx:rd2
+    extras:
+      size: 2
+      var_def: |
+        unsigned long tmp;
+        signed char i;
+      operation: |
+        for ( i = register_num(dest); i <= register_num(dest2); i++ ) {
+        tmp = *SP;
+        SP = SP + 4;
+        register(i) = tmp;
+        }
+  - name: add_3
+    format: 011100|xx:li|xxxx:rs2|xxxx:rd
+    extras:
+      size: 3
+      operation: |
+        dest = src2 + src;
+      imm: { variable: src, im_len: li }
+    field_extras:
+      mi: { type: MemEx, variable: memex, value: [ B, W, L, UW ]}
+      li: { type: ImLen, value:[ imm32, simm8, simm16, simm24 ] }
+  - name: cmp_2
+    format: 011101010101|xxxx:rs2|xxxxxxxx:uimm
+    extras:
+      size: 3
+      operation: |
+        src2 - src;
+    field_extras:
+      uimm: { variable: src }
+  - name: int
+    format: 0111010101100000|xxxxxxxx:imm
+    extras:
+      size: 3
+      var_def: |
+        unsigned long tmp0, tmp1;
+      operation: |
+        tmp0 = PSW;
+        U = 0;
+        I = 0;
+        PM = 0;
+        tmp1 = PC + 3;
+        PC = *(IntBase + src * 4);
+        SP = SP - 4;
+        *SP = tmp0;
+        SP = SP - 4;
+        *SP = tmp1;
+    field_extras:
+      imm: { variable: src }
+  - name: mov_5
+    format: 011101010100|xxxx:rd|xxxxxxxx:uimm
+    extras:
+      size: 3
+      operation: |
+        dest = src;
+    field_extras:
+      uimm: { variable: src }
+  - name: mvtipl
+    format: 01110101011100000000|xxxx:imm
+    extras:
+      size: 3
+      operation: |
+        IPL = src;
+    field_extras:
+      imm: { variable: src }
+  - name: and_2
+    format: 011101|xx:li|0010|xxxx:rd
+    extras:
+      size: 3
+      operation: |
+        dest = dest & src;
+      imm: { variable: src, im_len: li }
+    field_extras:
+      li: { type: ImLen, value:[ imm32, simm8, simm16, simm24 ] }
+  - name: cmp_3
+    format: 011101|xx:li|0000|xxxx:rs2
+    extras:
+      size: 3
+      operation: |
+        src2 - src;
+      imm: { variable: src, im_len: li }
+    field_extras:
+      li: { type: ImLen, value:[ imm32, simm8, simm16, simm24 ] }
+  - name: mul_2
+    format: 011101|xx:li|0001|xxxx:rd
+    extras:
+      size: 3
+      operation: |
+        dest = src * dest;
+      imm: { variable: src, im_len: li }
+    field_extras:
+      li: { type: ImLen, value:[ imm32, simm8, simm16, simm24 ] }
+  - name: or_2
+    format: 011101|xx:li|0011|xxxx:rd
+    extras:
+      size: 3
+      operation: |
+        dest = dest | src;
+      imm: { variable: src, im_len: li }
+    field_extras:
+      li: { type: ImLen, value:[ imm32, simm8, simm16, simm24 ] }
+  - name: bset_3
+    format: 0111100|xxxxx:imm|xxxx:rd
+    extras:
+      size: 2
+      operation: |
+        dest |= (1 << (src & 7));
+    field_extras:
+      imm: { variable: src }
+  - name: bclr_3
+    format: 0111101|xxxxx:imm|xxxx:rd
+    extras:
+      size: 2
+      operation: |
+        dest &= ~(1 << (src & 7));
+    field_extras:
+      imm: { variable: src }
+  - name: btst_3
+    format: 0111110|xxxxx:imm|xxxx:rs2
+    extras:
+      size: 2
+      operation: |
+        Z = ~((src2 >> (src & 7)) & 1);
+        C = ((src2 >> (src & 7)) & 1);
+    field_extras:
+      imm: { variable: src }
+  - name: abs_1
+    format: 011111100010|xxxx:rd
+    extras:
+      size: 2
+      operation: |
+        if (dest < 0)
+        dest = -dest;
+    field_extras:
+      rd: { type: int32_t, variable: dest }
+  - name: neg_1
+    format: 011111100001|xxxx:rd
+    extras:
+      size: 2
+      operation: |
+        dest = -dest;
+    field_extras:
+      rd: { type: int32_t, variable: dest }
+  - name: not_1
+    format: 011111100000|xxxx:rd
+    extras:
+      size: 2
+      operation: |
+        dest = ~dest;
+  - name: rolc
+    format: 011111100101|xxxx:rd
+    extras:
+      size: 2
+      operation: |
+        dest <<= 1;
+        if ( C == 0 ) { dest &= 0xFFFFFFFE; }
+        else { dest |= 0x00000001; }
+  - name: pop
+    format: 011111101011|xxxx:rd
+    extras:
+      size: 2
+      var_def: |
+        unsigned long tmp;
+      operation: |
+        tmp = *SP;
+        SP = SP + 4;
+        dest = tmp;
+  - name: popc
+    format: 011111101110|xxxx:cr
+    extras:
+      size: 2
+      var_def: |
+        unsigned long tmp;
+      operation: |
+        tmp = *SP;
+        SP = SP + 4;
+        dest = tmp;
+    field_extras:
+      cr: { type: CtrlReg, attach: dest, value: [PSW, none, USP, FPSW, none, none, none, none, BPSW, BPC, ISP, FINTV, INTB, EXTB, none, none] }
+  - name: rorc
+    format: 011111100100|xxxx:rd
+    extras:
+      size: 2
+      operation: |
+        dest >>= 1;
+        if ( C == 0 ) { dest &= 0x7FFFFFFF; }
+        else { dest |= 0x80000000; }
+  - name: push_1
+    format: 0111111010|xx:sz|xxxx:rs
+    extras:
+      size: 2
+      var_def: |
+        unsigned long tmp;
+      operation: |
+        tmp = src;
+        SP = SP - 4;
+        *SP = tmp;
+  - name: pushc
+    format: 011111101100|xxxx:cr
+    extras:
+      size: 2
+      var_def: |
+        unsigned long tmp;
+      operation: |
+        tmp = src;
+        SP = SP - 4;
+        *SP = tmp;
+    field_extras:
+      cr: { type: CtrlReg, attach: src, value: [PSW, none, USP, FPSW, none, none, none, none, BPSW, BPC, ISP, FINTV, INTB, EXTB, none, none] }
+  - name: sat
+    format: 011111100011|xxxx:rd
+    extras:
+      size: 2
+      operation: |
+        if (O == 1 && S == 1)
+        dest = 0x7FFFFFFF;
+        else if (O == 1 && S == 0)
+        dest = 0x80000000;
+  - name: jmp
+    format: 011111110000|xxxx:rs
+    extras:
+      size: 2
+      operation: |
+        PC = src;
+  - name: jsr
+    format: 011111110001|xxxx:rs
+    extras:
+      size: 2
+      operation: |
+        SP = SP - 4;
+        *SP = (PC + 2);
+        PC = src;
+  - name: bra_l
+    format: 011111110100|xxxx:rs
+    extras:
+      size: 2
+      operation: |
+        PC = PC + src;
+  - name: bsr_l
+    format: 011111110101|xxxx:rs
+    extras:
+      size: 2
+      operation: |
+        SP = SP - 4;
+        *SP = (PC + 2);
+        PC = PC + src;
+  - name: scmpu
+    format: "0111111110000011"
+    extras:
+      size: 2
+      var_def: |
+        unsigned char *R2, *R1, tmp0, tmp1;
+        unsigned long R3;
+      operation: |
+        while (R3 != 0) {
+        tmp0 = *R1++;
+        tmp1 = *R2++;
+        R3--;
+        if (tmp0 != tmp1 || tmp0 == '\0') {
+        break;
+        }
+        }
+  - name: suntil_b
+    format: "0111111110000000"
+    extras:
+      size: 2
+      var_def: |
+        unsigned char *R1;
+        unsigned long R2, R3, tmp;
+      operation: |
+        while (R3 != 0) {
+        tmp = (unsigned long) *R1++;
+        R3--;
+        if (tmp == R2) {
+        break;
+        }
+        }
+  - name: suntil_w
+    format: "0111111110000001"
+    extras:
+      size: 2
+      var_def: |
+        unsigned short *R1;
+        unsigned long R2, R3, tmp;
+      operation: |
+        while (R3 != 0) {
+        tmp = (unsigned long) *R1++;
+        R3--;
+        if (tmp == R2) {
+        break;
+        }
+        }
+  - name: suntil_l
+    format: "0111111110000010"
+    extras:
+      size: 2
+      var_def: |
+        unsigned long *R1;
+        unsigned long R2, R3, tmp;
+      operation: |
+        while (R3 != 0) {
+        tmp = (unsigned long) *R1++;
+        R3--;
+        if (tmp == R2) {
+        break;
+        }
+        }
+  - name: smovu
+    format: "0111111110000111"
+    extras:
+      size: 2
+      var_def: |
+        unsigned char *R1, *R2, tmp;
+        unsigned long R3;
+      operation: |
+        while (R3 != 0) {
+        tmp = *R2++;
+        *R1++ = tmp;
+        R3--;
+        if (tmp == '\0') {
+        break;
+        }
+        }
+  - name: swhile_b
+    format: "0111111110000100"
+    extras:
+      size: 2
+      var_def: |
+        unsigned char *R1;
+        unsigned long R2, R3, tmp;
+      operation: |
+        while (R3 != 0) {
+        tmp = (unsigned long)*R1++;
+        R3--;
+        if (tmp != R2) {
+        break;
+        }
+        }
+  - name: swhile_w
+    format: "0111111110000101"
+    extras:
+      size: 2
+      var_def: |
+        unsigned short *R1;
+        unsigned long R2, R3, tmp;
+      operation: |
+        while (R3 != 0) {
+        tmp = (unsigned long)*R1++;
+        R3--;
+        if (tmp != R2) {
+        break;
+        }
+        }
+  - name: swhile_l
+    format: "0111111110000110"
+    extras:
+      size: 2
+      var_def: |
+        unsigned long *R1;
+        unsigned long R2, R3, tmp;
+      operation: |
+        while (R3 != 0) {
+        tmp = (unsigned long)*R1++;
+        R3--;
+        if (tmp != R2) {
+        break;
+        }
+        }
+  - name: smovb
+    format: "0111111110001011"
+    extras:
+      size: 2
+      var_def: |
+        unsigned char *R1, *R2;
+        unsigned long R3;
+      operation: |
+        while (R3 != 0) {
+        *R1-- = *R2--;
+        R3 = R3 - 1;
+        }
+  - name: sstr_b
+    format: "0111111110001000"
+    extras:
+      size: 2
+      var_def: |
+        unsigned char *R1, R2;
+        unsigned long R3;
+      operation: |
+        while (R3 != 0) {
+        *R1++ = R2;
+        R3 = R3 - 1;
+        }
+  - name: sstr_w
+    format: "0111111110001001"
+    extras:
+      size: 2
+      var_def: |
+        unsigned short *R1, R2;
+        unsigned long R3;
+      operation: |
+        while (R3 != 0) {
+        *R1++ = R2;
+        R3 = R3 - 1;
+        }
+  - name: sstr_l
+    format: "0111111110001010"
+    extras:
+      size: 2
+      var_def: |
+        unsigned long *R1, R2;
+        unsigned long R3;
+      operation: |
+        while (R3 != 0) {
+        *R1++ = R2;
+        R3 = R3 - 1;
+        }
+  - name: smovf
+    format: "0111111110001111"
+    extras:
+      size: 2
+      var_def: |
+        unsigned char *R1, *R2;
+        unsigned long R3;
+      operation: |
+        while ( R3 != 0 ) {
+        *R1++ = *R2++;
+        R3 = R3 - 1;
+        }
+  - name: rmpa
+    format: 01111111100011|xx:sz
+    extras:
+      size: 2
+      var_def: |
+        unsigned long *R1, *R2;
+        unsigned long R3, R4, R5, R6;
+      operation: |
+        while (R3 != 0) {
+        R6:R5:R4 = R6:R5:R4 + *R1 * *R2;
+        R1 = R1 + n;
+        R2 = R2 + n;
+        R3 = R3 - 1;
+        }
+    field_extras:
+        sz: { type: OpSize, variable: n, value: [ B, L, W, none] }
+  - name: satr
+    format: "0111111110010011"
+    extras:
+      size: 2
+      var_def: |
+        unsigned long R3, R4, R5, R6;
+      operation: |
+        if ( O == 1 && S == 0 )
+        R6:R5:R4 = 0x000000007FFFFFFFFFFFFFFF;
+        else if ( O == 1 && S == 1 )
+        R6:R5:R4 = 0xFFFFFFFF8000000000000000;
+  - name: rtfi
+    format: "0111111110010100"
+    extras:
+      size: 2
+      operation: |
+        PSW = BPSW;
+        PC = BPC;
+        LI = 0;
+  - name: rte
+    format: "0111111110010101"
+    extras:
+      size: 2
+      var_def: |
+        unsigned long tmp;
+      operation: |
+        PC = *SP;
+        SP = SP + 4;
+        tmp = *SP;
+        SP = SP + 4;
+        PSW = tmp;
+        LI = 0;
+  - name: wait
+    format: "0111111110010110"
+    extras:
+      size: 2
+      operation: |
+        /* wait */
+  - name: setpsw
+    format: 011111111010|xxxx:cb
+    extras:
+      size: 2
+      operation: |
+        dest = 1;
+    field_extras:
+      cb: { type: PswFlag, attach: dest, value: [C, Z, S, O, none, none, none, none, I, U] }
+  - name: clrpsw
+    format: 011111111011|xxxx:cb
+    extras:
+      size: 2
+      operation: |
+        dest = 0;
+    field_extras:
+      cb: { type: PswFlag, attach: dest, value: [C, Z, S, O, none, none, none, none, I, U] }
+  - name: movu_1
+    format: 1011|x:sz|xxxx:dsp[4:1]|xxx:rs|x:dsp[0]|xxx:rd
+    extras:
+      size: 2
+      operation: |
+        dest = src;
+  - name: mov_1
+    format: 10|xx:sz|0|xxxx:dsp[4:1]|xxx:rd|x:dsp[0]|xxx:rs
+    extras:
+      size: 2
+      operation: |
+        dest = src;
+  - name: mov_2
+    format: 10|xx:sz|1|xxxx:dsp[4:1]|xxx:rs|x:dsp[0]|xxx:rd
+    extras:
+      size: 2
+      operation: |
+        dest = src;
+  - name: sbb_1
+    format: 11111100000000|xx:ld|xxxx:rs|xxxx:rd
+    extras:
+      size: 3
+      operation: |
+        dest = dest - src - !C;
+    field_extras:
+      ld: { type: DispLen, value:[ none, none, none, register ] }
+  - name: neg_2
+    format: 1111110000000111|xxxx:rs|xxxx:rd
+    extras:
+      size: 3
+      operation: |
+        dest = -src;
+    field_extras:
+      rs: { type: int32_t, variable: src }
+      rd: { type: int32_t, variable: dest }
+  - name: adc_2
+    format: 11111100000010|xx:ld|xxxx:rs|xxxx:rd
+    extras:
+      size: 3
+      operation: |
+        dest = dest + src + C;
+    field_extras:
+      ld: { type: DispLen, value:[ none, none, none, register ] }
+  - name: abs_2
+    format: 1111110000001111|xxxx:rs|xxxx:rd
+    extras:
+      size: 3
+      operation: |
+        if (src < 0)
+        dest = -src;
+        else
+        dest = src;
+    field_extras:
+      rs: { type: int32_t, variable: src }
+      rd: { type: int32_t, variable: dest }
+  - name: not_2
+    format: 1111110000111011|xxxx:rs|xxxx:rd
+    extras:
+      size: 3
+      operation: |
+        dest = ~src;
+  - name: bset_4
+    format: 11111100011000|xx:ld|xxxx:rd|xxxx:rs
+    extras:
+      size: 3
+      operation: |
+        dest |= (1 << (src & 7));
+    field_extras:
+      ld: { type: DispLen, value:[ none, none, none, register ] }
+  - name: bclr_4
+    format: 11111100011001|xx:ld|xxxx:rd|xxxx:rs
+    extras:
+      size: 3
+      operation: |
+        dest &= ~(1 << (src & 7));
+    field_extras:
+      ld: { type: DispLen, value:[ none, none, none, register ] }
+  - name: btst_4
+    format: 11111100011010|xx:ld|xxxx:rs2|xxxx:rs
+    extras:
+      size: 3
+      operation: |
+        Z = ~((src2 >> (src & 7)) & 1);
+        C = ((src2 >> (src & 7)) & 1);
+    field_extras:
+      ld: { type: DispLen, value:[ none, none, none, register ] }
+  - name: bnot_4
+    format: 11111100011011|xx:ld|xxxx:rd|xxxx:rs
+    extras:
+      size: 3
+      operation: |
+        dest ^= (1 << (src & 7));
+    field_extras:
+      ld: { type: DispLen, value:[ none, none, none, register ] }
+  - name: max_2
+    format: 11111100000100|xx:ld|xxxx:rs|xxxx:rd
+    extras:
+      size: 3
+      operation: |
+        if (src > dest)
+        dest = src;
+    field_extras:
+      ld: { type: DispLen, value:[ disp0, disp8, disp16, register ] }
+  - name: min_2
+    format: 11111100000101|xx:ld|xxxx:rs|xxxx:rd
+    extras:
+      size: 3
+      operation: |
+        if (src < dest)
+        dest = src;
+    field_extras:
+      ld: { type: DispLen, value:[ disp0, disp8, disp16, register ] }
+  - name: emul_2
+    format: 11111100000110|xx:ld|xxxx:rs|xxxx:rd
+    extras:
+      size: 3
+      operation: |
+        dest2:dest = dest * src;
+    field_extras:
+      ld: { type: DispLen, value:[ disp0, disp8, disp16, register ] }
+  - name: emulu_2
+    format: 11111100000111|xx:ld|xxxx:rs|xxxx:rd
+    extras:
+      size: 3
+      operation: |
+        dest2:dest = dest * src;
+    field_extras:
+      ld: { type: DispLen, value:[ disp0, disp8, disp16, register ] }
+  - name: div_2
+    format: 11111100001000|xx:ld|xxxx:rs|xxxx:rd
+    extras:
+      size: 3
+      operation: |
+        dest = dest / src;
+    field_extras:
+      ld: { type: DispLen, value:[ disp0, disp8, disp16, register ] }
+  - name: divu_2
+    format: 11111100001001|xx:ld|xxxx:rs|xxxx:rd
+    extras:
+      size: 3
+      operation: |
+        dest = dest / src;
+    field_extras:
+      ld: { type: DispLen, value:[ disp0, disp8, disp16, register ] }
+  - name: tst_2
+    format: 11111100001100|xx:ld|xxxx:rs|xxxx:rs2
+    extras:
+      size: 3
+      operation: |
+        src2 & src;
+    field_extras:
+      ld: { type: DispLen, value:[ disp0, disp8, disp16, register ] }
+  - name: xor_2
+    format: 11111100001101|xx:ld|xxxx:rs|xxxx:rd
+    extras:
+      size: 3
+      operation: |
+        dest = dest ^ src;
+    field_extras:
+      ld: { type: DispLen, value:[ disp0, disp8, disp16, register ] }
+  - name: xchg_1
+    format: 11111100010000|xx:ld|xxxx:rs|xxxx:rd
+    extras:
+      size: 3
+      var_def: |
+        unsigned long tmp;
+      operation: |
+        tmp = src;
+        src = dest;
+        dest = tmp;
+    field_extras:
+      ld: { type: DispLen, value:[ disp0, disp8, disp16, register ] }
+  - name: itof_1
+    format: 11111100010001|xx:ld|xxxx:rs|xxxx:rd
+    extras:
+      size: 3
+      operation: |
+        dest = (float)src;
+    field_extras:
+      ld: { type: DispLen, value:[ disp0, disp8, disp16, register ] }
+  - name: bset_2
+    format: 11111100011000|xx:ld|xxxx:rd|xxxx:rs
+    extras:
+      size: 3
+      operation: |
+        dest |= (1 << (src & 7));
+    field_extras:
+      ld: { type: DispLen, value:[ disp0, disp8, disp16, none ] }
+  - name: bclr_2
+    format: 11111100011001|xx:ld|xxxx:rd|xxxx:rs
+    extras:
+      size: 3
+      operation: |
+        dest &= ~(1 << (src & 7));
+    field_extras:
+      ld: { type: DispLen, value:[ disp0, disp8, disp16, none ] }
+  - name: btst_2
+    format: 11111100011010|xx:ld|xxxx:rs2|xxxx:rs
+    extras:
+      size: 3
+      operation: |
+        Z = ~((src2 >> (src & 7)) & 1);
+        C = ((src2 >> (src & 7)) & 1);
+    field_extras:
+      ld: { type: DispLen, value:[ disp0, disp8, disp16, none ] }
+  - name: bnot_2
+    format: 11111100011011|xx:ld|xxxx:rd|xxxx:rs
+    extras:
+      size: 3
+      operation: |
+        dest ^= (1 << (src & 7));
+    field_extras:
+      ld: { type: DispLen, value:[ disp0, disp8, disp16, none ] }
+  - name: fsub_2
+    format: 11111100100000|xx:ld|xxxx:rs|xxxx:rd
+    extras:
+      size: 3
+      operation: |
+        dest = dest - src;
+    field_extras:
+      ld: { type: DispLen, value:[ disp0, disp8, disp16, register ] }
+  - name: fcmp_2
+    format: 11111100100001|xx:ld|xxxx:rs|xxxx:rs2
+    extras:
+      size: 3
+      operation: |
+        src2 - src;
+    field_extras:
+      ld: { type: DispLen, value:[ disp0, disp8, disp16, register ] }
+  - name: fadd_2
+    format: 11111100100010|xx:ld|xxxx:rs|xxxx:rd
+    extras:
+      size: 3
+      operation: |
+        dest = dest + src;
+    field_extras:
+      ld: { type: DispLen, value:[ disp0, disp8, disp16, register ] }
+  - name: fmul_2
+    format: 11111100100011|xx:ld|xxxx:rs|xxxx:rd
+    extras:
+      size: 3
+      operation: |
+        dest = dest * src;
+    field_extras:
+      ld: { type: DispLen, value:[ disp0, disp8, disp16, register ] }
+  - name: fdiv_2
+    format: 11111100100100|xx:ld|xxxx:rs|xxxx:rd
+    extras:
+      size: 3
+      operation: |
+        dest = dest / src;
+    field_extras:
+      ld: { type: DispLen, value:[ disp0, disp8, disp16, register ] }
+  - name: ftoi
+    format: 11111100100101|xx:ld|xxxx:rs|xxxx:rd
+    extras:
+      size: 3
+      operation: |
+        dest = (signed long)src;
+    field_extras:
+      ld: { type: DispLen, value:[ disp0, disp8, disp16, register ] }
+  - name: round
+    format: 11111100100110|xx:ld|xxxx:rs|xxxx:rd
+    extras:
+      size: 3
+      operation: |
+        dest = (signed long)src;
+    field_extras:
+      ld: { type: DispLen, value:[ disp0, disp8, disp16, register ] }
+  - name: sccnd
+    format: 111111001101|xx:sz|xx:id|xxxx:rd|xxxx:cd
+    extras:
+      size: 3
+      operation: |
+        if ( Cnd )
+        dest = 1;
+        else
+        dest = 0;
+    field_extras:
+      ld: { type: DispLen, value:[ disp0, disp8, disp16, register ] }
+      cd: { type: bool, variable: Cnd, value: [Z == 1, Z == 0, C == 1, C == 0, S == 0, (C & ~Z) == 0, S == 0, S == 1, (S ^ O) == 0, (S ^ O) == 1, ((S ^ O) | Z) == 0, ((S ^ O) | Z) == 1, O == 1, O == 0] }
+  - name: bmcnd_1
+    format: 11111100111|xxx:imm|xx:ld|xxxx:rd|xxxx:cd
+    extras:
+      size: 3
+      operation: |
+        if (Cnd)
+        dest |= (1 << (src & 7));
+        else
+        dest &= ~(1 << (src & 7));
+    field_extras:
+      imm: { variable: src }
+      ld: { type: DispLen, value:[ disp0, disp8, disp16, none ] }
+      cd: { type: bool, variable: Cnd, value: [Z == 1, Z == 0, C == 1, C == 0, S == 0, (C & ~Z) == 0, S == 0, S == 1, (S ^ O) == 0, (S ^ O) == 1, ((S ^ O) | Z) == 0, ((S ^ O) | Z) == 1, O == 1, O == 0] }
+  - name: bnot_1
+    format: 11111100111|xxx:imm|xx:id|xxxx:rd|1111
+    extras:
+      size: 3
+      operation: |
+        dest ^= (1 << (src & 7));
+    field_extras:
+      imm: { variable: src }
+      ld: { type: DispLen, value:[ disp0, disp8, disp16, none ] }
+  - name: shlr_3
+    format: 11111101100|xxxxx:imm|xxxx:rs2|xxxx:rd
+    extras:
+      size: 3
+      operation: |
+        dest = (unsigned long)src2 >> (src & 31);
+    field_extras:
+      imm: { variable: src }
+  - name: shar_3
+    format: 11111101101|xxxxx:imm|xxxx:rs2|xxxx:rd
+    extras:
+      size: 3
+      operation: |
+        dest = (signed long)src2 >> (src & 31);
+    field_extras:
+      imm: { variable: src }
+  - name: shll_3
+    format: 11111101110|xxxxx:imm|xxxx:rs2|xxxx:rd
+    extras:
+      size: 3
+      operation: |
+        dest = src2 << (src & 31);
+    field_extras:
+      imm: { variable: src }
+  - name: bmcnd_2
+    format: 11111101111|xxxxx:imm|xxxx:cd|xxxx:rd
+    extras:
+      size: 3
+      operation: |
+        if (Cnd)
+        dest |= (1 << (src & 7));
+        else
+        dest &= ~(1 << (src & 7));
+    field_extras:
+      imm: { variable: src }
+      cd: { type: bool, variable: Cnd, value: [Z == 1, Z == 0, C == 1, C == 0, S == 0, (C & ~Z) == 0, S == 0, S == 1, (S ^ O) == 0, (S ^ O) == 1, ((S ^ O) | Z) == 0, ((S ^ O) | Z) == 1, O == 1, O == 0] }
+  - name: bnot_3
+    format: 11111101111|xxxxx:imm|1111|xxxx:rd
+    extras:
+      size: 3
+      operation: |
+        dest ^= (1 << (src & 7));
+    field_extras:
+      imm: { variable: src }
+  - name: mulhi
+    format: 111111010000|x:a|000|xxxx:rs|xxxx:rs2
+    extras:
+      size: 3
+      var_def: |
+        signed short tmp1, tmp2;
+        int72_t tmp3;
+      operation: |
+        tmp1 = (signed short)(src >> 16);
+        tmp2 = (signed short)(src2 >> 16);
+        tmp3 = (signed long)tmp1 * (signed long)tmp2;
+        Adest = (tmp3 << 16);
+  - name: mullo
+    format: 111111010000|x:a|001|xxxx:rs|xxxx:rs2
+    extras:
+      size: 3
+      var_def: |
+        signed short tmp1, tmp2;
+        int72_t tmp3;
+      operation: |
+        tmp1 = (signed short)src;
+        tmp2 = (signed short)src2;
+        tmp3 = (signed long)tmp1 * (signed long)tmp2;
+        Adest = (tmp3 << 16);
+  - name: machi
+    format: 111111010000|x:a|100|xxxx:rs|xxxx:rs2
+    extras:
+      size: 3
+      var_def: |
+        signed short tmp1, tmp2;
+        int72_t tmp3;
+      operation: |
+        tmp1 = (signed short)(src >> 16);
+        tmp2 = (signed short)(src2 >> 16);
+        tmp3 = (signed long)tmp1 * (signed long)tmp2;
+        Adest = Adest + (tmp3 << 16);
+  - name: maclo
+    format: 111111010000|x:a|101|xxxx:rs|xxxx:rs2
+    extras:
+      size: 3
+      var_def: |
+        signed short tmp1, tmp2;
+        int72_t tmp3;
+      operation: |
+        tmp1 = (signed short)src;
+        tmp2 = (signed short)src2;
+        tmp3 = (signed long)tmp1 * (signed long)tmp2;
+        Adest = Adest + (tmp3 << 16);
+  - name: mvtachi
+    format: 1111110100010111|x:a|000|xxxx:rs
+    extras:
+      size: 3
+      operation: |
+        Adest = (Adest & 0xFF00000000FFFFFFFF) | ((int72_t)src << 32);
+  - name: mvtaclo
+    format: 1111110100010111|x:a|001|xxxx:rs
+    extras:
+      size: 3
+      operation: |
+        Adest = (Adest & 0xFFFFFFFFFF00000000) | (uint72_t)src;
+  - name: racw
+    format: 1111110100011000|x:a|00|x:imm|0000
+    extras:
+      size: 3
+      var_def: |
+        int72_t tmp;
+        int73_t tmp73;
+      operation: |
+        tmp = (int72_t) Adest << src;
+        tmp73 = (int73_t) tmp + 0x0000000000080000000;
+        if (tmp73 > (int73_t)0x00000007FFF00000000)
+        Adest = 0x0000007FFF00000000;
+        else if (tmp73 < (int73_t)0x1FFFFFF800000000000)
+        Adest = 0xFFFFFF800000000000;
+        else
+        Adest = tmp & 0xFFFFFFFFFF00000000;
+    field_extras:
+      imm: { variable: src }
+  - name: mvfachi
+    format: 111111010001111|x:imm[1]|x:a|x:imm[0]|00|xxxx:rd
+    extras:
+      size: 3
+      var_def: |
+        int72_t tmp;
+      operation: |
+        tmp = (int72_t)Asrc << src;
+        dest = (signed long)(tmp >> 32);
+    field_extras:
+      imm: { variable: src }
+  - name: mvfacmi
+    format: 111111010001111|x:imm[1]|x:a|x:imm[0]|10|xxxx:rd
+    extras:
+      size: 3
+      var_def: |
+        int72_t tmp;
+      operation: |
+        tmp = (int72_t)Asrc << src;
+        dest = (signed long)(Asrc >> 16);
+    field_extras:
+      imm: { variable: src }
+  - name: mov_14
+    format: 111111010010|xx:ad|xx:sz|xxxx:rd|xxxx:rs
+    extras:
+      size: 3
+      operation: |
+        dest = src;
+  - name: mov_15
+    format: 111111010010|xx:ad|xx:sz|xxxx:rs|xxxx:rd
+    extras:
+      size: 3
+      operation: |
+        dest = src;
+  - name: movu_4
+    format: 111111010011|xx:ad|0|x:sz|xxxx:rs|xxxx:rd
+    extras:
+      size: 3
+      operation: |
+        dest = src;
+  - name: shlr_2
+    format: 1111110101100000|xxxx:rs|xxxx:rd
+    extras:
+      size: 3
+      operation: |
+        dest = (unsigned long)dest >> (src & 31);
+  - name: shar_2
+    format: 1111110101100001|xxxx:rs|xxxx:rd
+    extras:
+      size: 3
+      operation: |
+        dest = (signed long)dest >> (src & 31);
+  - name: shll_2
+    format: 1111110101100010|xxxx:rs|xxxx:rd
+    extras:
+      size: 3
+      operation: |
+        dest = dest << (src & 31);
+  - name: rotr_2
+    format: 1111110101100100|xxxx:rs|xxxx:rd
+    extras:
+      size: 3
+      var_def: |
+        unsigned long tmp0, tmp1;
+      operation: |
+        tmp0 = src & 31;
+        tmp1 = (unsigned long) dest >> tmp0;
+        dest = (dest << (32 - tmp0)) | tmp1;
+  - name: revw
+    format: 1111110101100101|xxxx:rs|xxxx:rd
+    extras:
+      size: 3
+      operation: |
+        Rd = { Rs[23:16], Rs[31:24], Rs[7:0], Rs[15:8] }
+  - name: rotl_2
+    format: 1111110101100110|xxxx:rs|xxxx:rd
+    extras:
+      size: 3
+      var_def: |
+        unsigned long tmp0, tmp1;
+      operation: |
+        tmp0 = src & 31;
+        tmp1 = dest << tmp0;
+        dest = ((unsigned long)dest >> (32 - tmp0)) | tmp1;
+  - name: revl
+    format: 1111110101100111|xxxx:rs|xxxx:rd
+    extras:
+      size: 3
+      operation: |
+        Rd = { Rs[7:0], Rs[15:8], Rs[23:16], Rs[31:24] }
+  - name: mvtc_2
+    format: 1111110101101000|xxxx:rs|xxxx:cr
+    extras:
+      size: 3
+      operation: |
+        dest = src;
+    field_extras:
+      cr: { type: CtrlReg, attach: dest, value: [PSW, none, USP, FPSW, none, none, none, none, BPSW, BPC, ISP, FINTV, INTB, EXTB, none, none] }
+  - name: mvfc
+    format: 1111110101101010|xxxx:cr|xxxx:rd
+    extras:
+      size: 3
+      operation: |
+        dest = src;
+    field_extras:
+      cr: { type: CtrlReg, attach: src, value: [PSW, none, USP, FPSW, none, none, none, none, BPSW, BPC, ISP, FINTV, INTB, EXTB, none, none] }
+  - name: rotr_1
+    format: 111111010110110|xxxxx:imm|xxxx:rd
+    extras:
+      size: 3
+      var_def: |
+        unsigned long tmp0, tmp1;
+      operation: |
+        tmp0 = src & 31;
+        tmp1 = (unsigned long)dest >> tmp0;
+        dest = ((unsigned long)dest >> (32 - tmp0)) | tmp1;
+    field_extras:
+      imm: { variable: src }
+  - name: rotl_1
+    format: 111111010110111|xxxxx:imm|xxxx:rd
+    extras:
+      size: 3
+      var_def: |
+        unsigned long tmp0, tmp1;
+      operation: |
+        tmp0 = src & 31;
+        tmp1 = dest << tmp0;
+        dest = ((unsigned long) dest >> (32 - tmp0)) | tmp1;
+    field_extras:
+      imm: { variable: src }
+  - name: fadd_1
+    format: 11111101011100100010|xxxx:rd
+    extras:
+      size: 7
+      operation: |
+        dest = dest + src;
+      imm: { variable: src, im_len: imm32 }
+  - name: fcmp_1
+    format: 11111101011100100001|xxxx:rs2
+    extras:
+      size: 7
+      operation: |
+        src2 - src;
+      imm: { variable: src, im_len: imm32 }
+  - name: fdiv_1
+    format: 11111101011100100100|xxxx:rd
+    extras:
+      size: 7
+      operation: |
+        dest = dest / src;
+      imm: { variable: src, im_len: imm32 }
+  - name: fmul_1
+    format: 11111101011100100011|xxxx:rd
+    extras:
+      size: 7
+      operation: |
+        dest = dest * src;
+      imm: { variable: src, im_len: imm32 }
+  - name: fsub_1
+    format: 11111101011100100000|xxxx:rd
+    extras:
+      size: 7
+      operation: |
+        dest = dest - src;
+      imm: { variable: src, im_len: imm32 }
+  - name: adc_1
+    format: 111111010111|xx:li|000010|xxxx:rd
+    extras:
+      size: 4
+      operation: |
+        dest = dest + src + C;
+      imm: { variable: src, im_len: li }
+    field_extras:
+      li: { type: ImLen, value:[ imm32, simm8, simm16, simm24 ] }
+      rd: { variable: dest }
+  - name: div_1
+    format: 111111010111|xx:li|001000|xxxx:rd
+    extras:
+      size: 4
+      operation: |
+        dest = dest / src;
+      imm: { variable: src, im_len: li }
+    field_extras:
+      li: { type: ImLen, value:[ imm32, simm8, simm16, simm24 ] }
+  - name: divu_1
+    format: 111111010111|xx:li|001001|xxxx:rd
+    extras:
+      size: 4
+      operation: |
+        dest = dest / src;
+      imm: { variable: src, im_len: li }
+    field_extras:
+      li: { type: ImLen, value:[ imm32, simm8, simm16, simm24 ] }
+  - name: emul_1
+    format: 111111010111|xx:li|000110|xxxx:rd
+    extras:
+      size: 4
+      operation: |
+        dest2:dest = dest * src;
+      imm: { variable: src, im_len: li }
+    field_extras:
+      li: { type: ImLen, value:[ imm32, simm8, simm16, simm24 ] }
+  - name: emulu_1
+    format: 111111010111|xx:li|000111|xxxx:rd
+    extras:
+      size: 4
+      operation: |
+        dest2:dest = dest * src;
+      imm: { variable: src, im_len: li }
+    field_extras:
+      li: { type: ImLen, value:[ imm32, simm8, simm16, simm24 ] }
+  - name: max_1
+    format: 111111010111|xx:li|000100|xxxx:rd
+    extras:
+      size: 4
+      operation: |
+        if (src > dest)
+        dest = src;
+      imm: { variable: src, im_len: li }
+    field_extras:
+      li: { type: ImLen, value:[ imm32, simm8, simm16, simm24 ] }
+  - name: min_1
+    format: 111111010111|xx:li|000101|xxxx:rd
+    extras:
+      size: 4
+      operation: |
+        if (src < dest)
+        dest = src;
+      imm: { variable: src, im_len: li }
+    field_extras:
+      li: { type: ImLen, value:[ imm32, simm8, simm16, simm24 ] }
+  - name: stnz_1
+    format: 111111010111|xx:li|001111|xxxx:rd
+    extras:
+      size: 4
+      operation: |
+        if (Z == 0)
+        dest = src;
+      imm: { variable: src, im_len: li }
+    field_extras:
+      li: { type: ImLen, value:[ imm32, simm8, simm16, simm24 ] }
+  - name: stz_1
+    format: 111111010111|xx:li|001110|xxxx:rd
+    extras:
+      size: 4
+      operation: |
+        if (Z == 1)
+        dest = src;
+      imm: { variable: src, im_len: li }
+    field_extras:
+      li: { type: ImLen, value:[ imm32, simm8, simm16, simm24 ] }
+  - name: tst_1
+    format: 111111010111|xx:li|001100|xxxx:rs2
+    extras:
+      size: 4
+      operation: |
+        src2 & src;
+      imm: { variable: src, im_len: li }
+    field_extras:
+      li: { type: ImLen, value:[ imm32, simm8, simm16, simm24 ] }
+  - name: xor_1
+    format: 111111010111|xx:li|001101|xxxx:rd
+    extras:
+      size: 4
+      operation: |
+        dest = dest ^ src;
+      imm: { variable: src, im_len: li }
+    field_extras:
+      li: { type: ImLen, value:[ imm32, simm8, simm16, simm24 ] }
+  - name: mvtc_1
+    format: 111111010111|xx:li|110000|xxxx:cr
+    extras:
+      size: 4
+      operation: |
+        dest = src;
+      imm: { variable: src, im_len: li }
+    field_extras:
+      li: { type: ImLen, value:[ imm32, simm8, simm16, simm24 ] }
+      cr: { type: CtrlReg, attach: dest, value: [PSW, none, USP, FPSW, none, none, none, none, BPSW, BPC, ISP, FINTV, INTB, EXTB, none, none] }
+  - name: mov_10
+    format: 1111111001|xx:sz|xxxx:ri|xxxx:rb|xxxx:rd
+    extras:
+      size: 3
+      operation: |
+        dest = src;
+    field_extras:
+      sz: { type: OpSize, value: [ B, W, L ] }
+      ri: { variable: src, pair: index }
+      rb: { variable: src, pair: base }
+  - name: mov_12
+    format: 1111111000|xx:sz|xxxx:ri|xxxx:rb|xxxx:rs
+    extras:
+      size: 3
+      operation: |
+        dest = src;
+    field_extras:
+      sz: { type: OpSize, value: [ B, W, L ] }
+      ri: { variable: dest, pair: index }
+      rb: { variable: dest, pair: base }
+  - name: movu_3
+    format: 11111110110|x:sz|xxxx:ri|xxxx:rb|xxxx:rd
+    extras:
+      size: 3
+      operation: |
+        dest = src;
+    field_extras:
+      sz: { type: OpSize, value: [ B, W, L ] }
+      ri: { variable: src, pair: index }
+      rb: { variable: src, pair: base }
+  - name: add_4
+    format: 111111110010|xxxx:rd|xxxx:rs|xxxx:rs2
+    extras:
+      size: 3
+      operation: |
+        dest = src2 + src;
+  - name: and_4
+    format: 111111110100|xxxx:rd|xxxx:rs|xxxx:rs2
+    extras:
+      size: 3
+      operation: |
+        dest = src2 & src;
+  - name: mul_4
+    format: 111111110011|xxxx:rd|xxxx:rs|xxxx:rs2
+    extras:
+      size: 3
+      operation: |
+        dest = src * src2;
+  - name: or_4
+    format: 111111110101|xxxx:rd|xxxx:rs|xxxx:rs2
+    extras:
+      size: 3
+      operation: |
+        dest = src2 | src;
+  - name: sub_3
+    format: 111111110000|xxxx:rd|xxxx:rs|xxxx:rs2
+    extras:
+      size: 3
+      operation: |
+        dest = src2 - src;
+  - name: bclr_1
+    format: 111100|xx:ld|xxxx:rd|1|xxx:imm
+    extras:
+      size: 2
+      operation: |
+        dest &= ~(1 << (src & 7));
+    field_extras:
+      ld: { type: DispLen, value:[ disp0, disp8, disp16, none ] }
+      imm: { variable: src }
+  - name: bset_1
+    format: 111100|xx:ld|xxxx:rd|xxxx:rs
+    extras:
+      size: 2
+      operation: |
+        dest |= (1 << (src & 7));
+    field_extras:
+      ld: { type: DispLen, value:[ none, none, none, register ] }
+  - name: btst_1
+    format: 111101|xx:ld|xxxx:rs2|0|xxx:imm
+    extras:
+      size: 2
+      operation: |
+        Z = ~((src2 >> (src & 7)) & 1);
+        C = ((src2 >> (src & 7)) & 1);
+    field_extras:
+      ld: { type: DispLen, value:[ disp0, disp8, disp16, none ] }
+      imm: { variable: src }
+  - name: push_2
+    format: 111101|xx:ld|xxxx:rs|10|xx:sz
+    extras:
+      size: 2
+      operation: |
+    field_extras:
+      ld: { type: DispLen, value:[ disp0, disp8, disp16, none ] }
+  - name: mov_6
+    format: 11111011|xxxx:rd|xx:li|10
+    extras:
+      size: 3
+      operation: |
+        dest = src;
+      imm: { variable: src, im_len: li }
+    field_extras:
+      li: { type: ImLen, value:[ imm32, simm8, simm16, simm24 ] }
+  - name: mov_8
+    format: 111110|xx:ld|xxxx:rd|xx:li|xx:sz
+    extras:
+      size: 3
+      operation: |
+        dest = src;
+      imm: { variable: src, im_len: li }
+    field_extras:
+      ld: { type: DispLen, value:[ disp0, disp8, disp16, none ] }
+      li: { type: ImLen, value:[ imm32, simm8, simm16, simm24 ] }
+  - name: mov_7
+    format: 11|xx:sz|1111|xxxx:rs|xxxx:rd
+    extras:
+      size: 2
+      operation: |
+        dest = src;
+  - name: mov_9
+    format: 11|xx:sz|11|xx:ld|xxxx:rs|xxxx:rd
+    extras:
+      size: 2
+      operation: |
+        dest = src;
+    field_extras:
+      ld: { type: DispLen, value:[ disp0, disp8, disp16, none ] }
+  - name: mov_11
+    format: 11|xx:sz|xx:ld|11|xxxx:rd|xxxx:rs
+    extras:
+      size: 2
+      operation: |
+        dest = src;
+    field_extras:
+      ld: { type: DispLen, value:[ disp0, disp8, disp16, none ] }
+  - name: mov_13
+    format: 11|xx:sz|xx:ldd|xx:lds|xxxx:rs|xxxx:rd
+    extras:
+      size: 2
+      operation: |
+        dest = src;
+    field_extras:
+      ldd: { type: DispLen, value:[ disp0, disp8, disp16, none ] }
+      lds: { type: DispLen, value:[ disp0, disp8, disp16, none ] }
+  - name: fsqrt
+    format: 11111100101000|xx:ld|xxxx:rs|xxxx:rd
+    extras:
+      size: 3
+      operation: |
+        dest = sqrt(src);
+    field_extras:
+      ld: { type: DispLen, value:[ disp0, disp8, disp16, register ] }
+  - name: ftou
+    format: 11111100101001|xx:ld|xxxx:rs|xxxx:rd
+    extras:
+      size: 3
+      operation: |
+        dest = (unsigned long)src;
+    field_extras:
+      ld: { type: DispLen, value:[ disp0, disp8, disp16, register ] }
+  - name: utof_1
+    format: 11111100010101|xx:ld|xxxx:rs|xxxx:rd
+    extras:
+      size: 3
+      operation: |
+        dest = (float)(unsigned long)src;
+    field_extras:
+      ld: { type: DispLen, value:[ disp0, disp8, disp16, register ] }
+  - name: utof_1x
+    format: 00000110|xx:mi|1000|xx:ld|00010101|xxxx:rs|xxxx:rd
+    extras:
+      size: 3
+      operation: |
+        dest = (float)(unsigned long)src;
+    field_extras:
+      mi: { type: MemEx, variable: memex, value: [ B, W, L, UW ]}
+      ld: { type: DispLen, value:[ disp0, disp8, disp16, register ] }
+  - name: movco
+    format: 1111110100100111|xxxx:rd|xxxx:rs
+    extras:
+      size: 3
+      operation: |
+        if (LI == 1) { dest = src; src = 0; }
+        else { src = 1; }
+        LI = 0;
+    field_extras:
+      rs: { variable: src }
+      rd: { variable: dest }
+  - name: movli
+    format: 1111110100101111|xxxx:rs|xxxx:rd
+    extras:
+      size: 3
+      operation: |
+        LI = 1;
+        dest = src;
+  - name: emaca
+    format: 111111010000|x:a|111|xxxx:rs|xxxx:rs2
+    extras:
+      size: 3
+      var_def: |
+        int72_t tmp;
+      operation: |
+        tmp = (signed long) src * (signed long) src2;
+        Adest = Adest + tmp;
+  - name: emsba
+    format: 111111010100|x:a|111|xxxx:rs|xxxx:rs2
+    extras:
+      size: 3
+      var_def: |
+        int72_t tmp;
+      operation: |
+        tmp = (signed long) src * (signed long) src2;
+        Adest = Adest - tmp;
+  - name: emula
+    format: 111111010000|x:a|111|xxxx:rs|xxxx:rs2
+    extras:
+      size: 3
+      operation: |
+        Adest = (signed long) src * (signed long) src2;
+  - name: maclh
+    format: 111111010000|x:a|111|xxxx:rs|xxxx:rs2
+    extras:
+      size: 3
+      var_def: |
+        signed short tmp1, tmp2;
+        int72_t tmp3;
+      operation: |
+        tmp1 = (signed short)src;
+        tmp2 = (signed short)(src2 >> 16);
+        tmp3 = (signed long)tmp1 * (signed long)tmp2;
+        Adest = Adest + (tmp3 << 16);
+  - name: msbhi
+    format: 111111010100|x:a|111|xxxx:rs|xxxx:rs2
+    extras:
+      size: 3
+      var_def: |
+        signed short tmp1, tmp2;
+        int72_t tmp3;
+      operation: |
+        tmp1 = (signed short)(src >> 16);
+        tmp2 = (signed short)(src2 >> 16);
+        tmp3 = (signed long)tmp1 * (signed long)tmp2;
+        Adest = Adest - (tmp3 << 16);
+  - name: msblh
+    format: 111111010100|x:a|110|xxxx:rs|xxxx:rs2
+    extras:
+      size: 3
+      var_def: |
+        signed short tmp1, tmp2;
+        int72_t tmp3;
+      operation: |
+        tmp1 = (signed short)src;
+        tmp2 = (signed short)(src2 >> 16);
+        tmp3 = (signed long)tmp1 * (signed long)tmp2;
+        Adest = Adest - (tmp3 << 16);
+  - name: msblo
+    format: 111111010100|x:a|101|xxxx:rs|xxxx:rs2
+    extras:
+      size: 3
+      var_def: |
+        signed short tmp1, tmp2;
+        int72_t tmp3;
+      operation: |
+        tmp1 = (signed short)src;
+        tmp2 = (signed short)src2;
+        tmp3 = (signed long)tmp1 * (signed long)tmp2;
+        Adest = Adest - (tmp3 << 16);
+  - name: mullh
+    format: 111111010000|x:a|010|xxxx:rs|xxxx:rs2
+    extras:
+      size: 3
+      var_def: |
+        signed short tmp1, tmp2;
+        int72_t tmp3;
+      operation: |
+        tmp1 = (signed short)src;
+        tmp2 = (signed short)(src2 >> 16);
+        tmp3 = (signed long)tmp1 * (signed long)tmp2;
+        Adest = (tmp3 << 16);
+  - name: mvfacgu
+    format: 111111010001111|x:imm[1]|x:a|x:imm[0]|11|xxxx:rd
+    extras:
+      size: 3
+      var_def: |
+        int72_t tmp;
+      operation: |
+        tmp = (int72_t)Asrc << src;
+        dest = (signed long)(tmp >> 64);
+    field_extras:
+      imm: { variable: src }
+  - name: mvfaclo
+    format: 111111010001111|x:imm[1]|x:a|x:imm[0]|01|xxxx:rd
+    extras:
+      size: 3
+      var_def: |
+        int72_t tmp;
+      operation: |
+        tmp = (int72_t)Asrc << src;
+        dest = (signed long)tmp;
+    field_extras:
+      imm: { variable: src }
+  - name: mvtacgu
+    format: 1111110100010111|x:a|011|xxxx:rs
+    extras:
+      size: 3
+      operation: |
+        Adest = (Adest & 0x00FFFFFFFFFFFFFFFF) | ((int72_t)src << 64);
+  - name: racl
+    format: 1111110100011001|x:a|00|x:imm|0000
+    extras:
+      size: 3
+      var_def: |
+        int72_t tmp;
+        int73_t tmp73;
+      operation: |
+        tmp = (int72_t)Adest << src;
+        tmp73 = (int73_t)tmp + 0x0000000000080000000;
+        if (tmp73 > (int73_t)0x0007FFFFFFF00000000)
+        Adest = 0x007FFFFFFF00000000;
+        else if (tmp73 < (int73_t)0x1FF8000000000000000)
+        Adest = 0xFF8000000000000000;
+        else
+        Adest = tmp & 0xFFFFFFFFFF00000000;
+    field_extras:
+      imm: { variable: src }
+  - name: rdacl
+    format: 1111110100011001|x:a|10|x:imm|0000
+    extras:
+      size: 3
+      var_def: |
+        int72_t tmp;
+      operation: |
+        tmp = (int72_t)Adest << src;
+        if (tmp > (int72_t)0x007FFFFFFF00000000)
+        Adest = 0x007FFFFFFF00000000;
+        else if (tmp < (int72_t)0xFF8000000000000000)
+        Adest = 0xFF8000000000000000;
+        else
+        Adest = tmp & 0xFFFFFFFFFF00000000;
+    field_extras:
+      imm: { variable: src }
+  - name: rdacw
+    format: 1111110100011000|x:a|10|x:imm|0000
+    extras:
+      size: 3
+      var_def: |
+        int72_t tmp;
+      operation: |
+        tmp = (int72_t)Adest << src;
+        if (tmp > (int72_t)0x0000007FFF00000000)
+        Adest = 0x0000007FFF00000000;
+        else if (tmp < (int72_t)0xFFFFFF800000000000)
+        Adest = 0xFFFFFF800000000000;
+        else
+        Adest = tmp & 0xFFFFFFFFFF00000000;
+    field_extras:
+      imm: { variable: src }
+  - name: fadd_3
+    format: 111111111010|xxxx:rd|xxxx:rs|xxxx:rs2
+    extras:
+      size: 3
+      operation: |
+        dest = src2 + src;
+  - name: fmul_3
+    format: 111111111011|xxxx:rd|xxxx:rs|xxxx:rs2
+    extras:
+      size: 3
+      operation: |
+        dest = src2 * src;
+  - name: fsub_3
+    format: 111111111000|xxxx:rd|xxxx:rs|xxxx:rs2
+    extras:
+      size: 3
+      operation: |
+        dest = src2 - src;
+  - name: stnz_2
+    format: 1111110001001111|xxxx:rs|xxxx:rd
+    extras:
+      size: 3
+      operation: |
+  - name: stz_2
+    format: 1111110001001011|xxxx:rs|xxxx:rd
+    extras:
+      size: 3
+      operation: |
